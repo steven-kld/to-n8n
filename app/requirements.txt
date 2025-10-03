@@ -1,0 +1,4 @@
+fastapi
+uvicorn
+pillow
+neo4j

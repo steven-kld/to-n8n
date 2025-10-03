@@ -1,0 +1,250 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        32,
+        0
+      ],
+      "id": "058ac502-da07-4d51-b1d6-e49d85314d7c",
+      "name": "Start"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1U7OfL8EcxuJe2_JG93TBpSzOzMXe1ENqb1uO37RdZrY/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1U7OfL8EcxuJe2_JG93TBpSzOzMXe1ENqb1uO37RdZrY/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        0
+      ],
+      "id": "0b730334-e326-442e-9f0e-158452ee74f9",
+      "name": "Get all",
+      "credentials": {
+        "googleApi": {
+          "id": "txxM5alAA0IFgpDO",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = items.map(item => item.json);\nconst totalsByDate = {};\n\nfor (const row of rows) {\n  const date = row.Date;\n  if (!totalsByDate[date]) {\n    totalsByDate[date] = { date, totalQty: 0, totalPrice: 0 };\n  }\n  totalsByDate[date].totalQty += Number(row.Qty) || 0;\n  totalsByDate[date].totalPrice += Number(row.TotalPrice) || 0;\n}\n\nconst result = Object.values(totalsByDate);\n\nreturn [\n  {\n    json: {\n      results: result\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        0
+      ],
+      "id": "63253427-bb72-474d-8650-5b265aa45591",
+      "name": "Calculate"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://app:8000/results",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.results }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        640,
+        0
+      ],
+      "id": "8e2fd3e4-8c9e-4d1c-865f-a6e20eeb60dd",
+      "name": "Add to Graph"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"qty\": 120,\n  \"price\": 850,\n  \"limit\": 2 \n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        848,
+        0
+      ],
+      "id": "4b7828a6-228b-4728-babd-67d89a8994c0",
+      "name": "Set search params"
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "=image_base64",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1264,
+        0
+      ],
+      "id": "15e5501e-feb2-4007-9609-91e2d96e2686",
+      "name": "Display images"
+    },
+    {
+      "parameters": {
+        "url": "http://app:8000/results/search_many",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "qty",
+              "value": "={{ $json.qty }}"
+            },
+            {
+              "name": "price",
+              "value": "={{ $json.price }}"
+            },
+            {
+              "name": "limit",
+              "value": "={{ $json.limit }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1056,
+        0
+      ],
+      "id": "8b9bbbed-8e37-4396-8124-672dcc34a943",
+      "name": "Search similar images"
+    },
+    {
+      "parameters": {
+        "content": "### Search top 2 images similar to:\n### qty 120 & price 850",
+        "height": 96,
+        "width": 176
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        816,
+        176
+      ],
+      "typeVersion": 1,
+      "id": "c27764dd-2cf6-4274-90c9-dfad40d204a1",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### Click \"View\" in Binary output to view images",
+        "height": 96,
+        "width": 176
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1232,
+        176
+      ],
+      "typeVersion": 1,
+      "id": "a2eb1678-f1f4-4893-a706-31de2ac25275",
+      "name": "Sticky Note1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Get all",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get all": {
+      "main": [
+        [
+          {
+            "node": "Calculate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate": {
+      "main": [
+        [
+          {
+            "node": "Add to Graph",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add to Graph": {
+      "main": [
+        [
+          {
+            "node": "Set search params",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set search params": {
+      "main": [
+        [
+          {
+            "node": "Search similar images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search similar images": {
+      "main": [
+        [
+          {
+            "node": "Display images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "90a22de3-7821-4f39-8604-ecde2fbc71ba",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "036a104c97c30f6d8e38bb4b128563ee07d2b8a4733a2fd6105b0d3afefc01a7"
+  },
+  "id": "pEhNgLYwJhUssWdw",
+  "tags": []
+}
