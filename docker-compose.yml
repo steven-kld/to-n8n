@@ -13,6 +13,8 @@ services:
   n8n:
     image: n8nio/n8n:latest
     restart: always
+    ports:
+      - "5678:5678"
     environment:
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=postgres
@@ -20,18 +22,80 @@ services:
       - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
       - DB_POSTGRESDB_USER=${POSTGRES_USER}
       - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+
       - N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH_ACTIVE}
       - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
       - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
       - N8N_HOST=${N8N_HOST}
       - N8N_PORT=${N8N_PORT}
       - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - N8N_INIT_HOOK_FILES=/data/init.sh
+
+      - N8N_RUNNERS_ENABLED=true
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      - N8N_GIT_NODE_DISABLE_BARE_REPOS=true
+
     volumes:
       - n8n_data:/home/node/.n8n
+      - ./n8n_workflows:/data/n8n_workflows
+      - ./init.sh:/data/init.sh:ro
+
     depends_on:
       - postgres
     networks: [netw]
-    
+  
+  n8n-importer:
+    image: n8nio/n8n:latest
+    depends_on:
+      - postgres
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./init.sh:/data/init.sh:ro
+      - ./n8n_workflows:/data/n8n_workflows
+      - n8n_data:/home/node/.n8n
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "sleep 10 &&
+       echo '[importer] Running init.sh...' &&
+       sh /data/init.sh &&
+       echo '[importer] Done.'"
+    restart: "no"
+    networks: [netw]
+
+  n8n-exporter:
+    image: n8nio/n8n:latest
+    depends_on:
+      - n8n
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - N8N_RUNNERS_ENABLED=true
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      - N8N_GIT_NODE_DISABLE_BARE_REPOS=true
+    volumes:
+      - ./n8n_workflows:/data/n8n_workflows
+      - n8n_data:/home/node/.n8n
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "sleep 10 &&
+       echo '[exporter] Exporting workflows...' &&
+       n8n export:workflow --all --separate --output=/data/n8n_workflows/ &&
+       echo '[exporter] Done.'"
+    restart: "no"
+    networks: [netw]
+
   app:
     build: ./app
     restart: always
